@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>חיישן מים</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #0a0a1a;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    h1 { font-size: 1.8rem; margin-bottom: 20px; color: #adf; }
+
+    .clock {
+      font-size: 4rem;
+      font-weight: bold;
+      letter-spacing: 4px;
+      color: #fff;
+      font-family: monospace;
+    }
+    .date {
+      font-size: 1.2rem;
+      color: #aaa;
+      margin-bottom: 30px;
+    }
+
+    .status-card {
+      background: #111;
+      border-radius: 16px;
+      padding: 30px 40px;
+      text-align: center;
+      margin-bottom: 20px;
+      width: 100%;
+      max-width: 400px;
+      border: 2px solid #333;
+      transition: border-color 0.3s;
+    }
+    .status-card.alert {
+      border-color: #f44;
+      background: #200;
+    }
+    .status-label {
+      font-size: 1rem;
+      color: #888;
+      margin-bottom: 8px;
+    }
+    .status-value {
+      font-size: 2.5rem;
+      font-weight: bold;
+    }
+    .status-value.ok { color: #4f4; }
+    .status-value.high { color: #f44; }
+
+    .last-card {
+      background: #111;
+      border-radius: 16px;
+      padding: 20px 30px;
+      width: 100%;
+      max-width: 400px;
+      border: 1px solid #333;
+      text-align: center;
+    }
+    .last-label { color: #888; font-size: 0.9rem; margin-bottom: 6px; }
+    .last-time { font-size: 1.3rem; color: #adf; font-family: monospace; }
+
+    .mqtt-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: #888;
+      display: inline-block;
+      margin-left: 6px;
+    }
+    .mqtt-dot.connected { background: #4f4; }
+    .mqtt-status { font-size: 0.8rem; color: #666; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>💧 חיישן מפלס מים</h1>
+
+  <div class="clock" id="clock">--:--:--</div>
+  <div class="date" id="date"></div>
+
+  <div class="status-card" id="statusCard">
+    <div class="status-label">מצב מים</div>
+    <div class="status-value ok" id="statusValue">ממתין...</div>
+  </div>
+
+  <div class="last-card">
+    <div class="last-label">פעם אחרונה שזוהו מים</div>
+    <div class="last-time" id="lastTime">אף פעם</div>
+  </div>
+
+  <div class="mqtt-status">
+    <span class="mqtt-dot" id="mqttDot"></span>
+    <span id="mqttStatus">מתחבר...</span>
+  </div>
+
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script>
+    // שעון
+    function updateClock() {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2,'0');
+      const mm = String(now.getMinutes()).padStart(2,'0');
+      const ss = String(now.getSeconds()).padStart(2,'0');
+      document.getElementById('clock').textContent = `${hh}:${mm}:${ss}`;
+
+      const dd = String(now.getDate()).padStart(2,'0');
+      const mo = String(now.getMonth()+1).padStart(2,'0');
+      const yy = now.getFullYear();
+      document.getElementById('date').textContent = `${dd}/${mo}/${yy}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // MQTT
+    const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
+
+    client.on('connect', () => {
+      document.getElementById('mqttDot').classList.add('connected');
+      document.getElementById('mqttStatus').textContent = 'מחובר';
+      client.subscribe('water-sensor/status');
+    });
+
+    client.on('disconnect', () => {
+      document.getElementById('mqttDot').classList.remove('connected');
+      document.getElementById('mqttStatus').textContent = 'מנותק';
+    });
+
+    client.on('message', (topic, payload) => {
+      try {
+        const data = JSON.parse(payload.toString());
+        const card = document.getElementById('statusCard');
+        const val  = document.getElementById('statusValue');
+
+        if (data.detected) {
+          card.classList.add('alert');
+          val.className = 'status-value high';
+          val.textContent = '⚠️ מים גבוהים!';
+          document.getElementById('lastTime').textContent = data.time || '---';
+        } else {
+          card.classList.remove('alert');
+          val.className = 'status-value ok';
+          val.textContent = '✓ תקין';
+        }
+      } catch(e) {}
+    });
+  </script>
+</body>
+</html>
