@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>חיישן מים</title>
+  <title>💧 Flow Meter</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -46,11 +46,6 @@
       border-color: #f44;
       background: #200;
     }
-    .status-label {
-      font-size: 1rem;
-      color: #888;
-      margin-bottom: 8px;
-    }
     .status-value {
       font-size: 2.5rem;
       font-weight: bold;
@@ -66,9 +61,50 @@
       max-width: 400px;
       border: 1px solid #333;
       text-align: center;
+      margin-bottom: 20px;
     }
     .last-label { color: #888; font-size: 0.9rem; margin-bottom: 6px; }
     .last-time { font-size: 1.3rem; color: #adf; font-family: monospace; }
+
+    .log-card {
+      background: #111;
+      border-radius: 16px;
+      padding: 20px;
+      width: 100%;
+      max-width: 400px;
+      border: 1px solid #333;
+      margin-bottom: 20px;
+    }
+    .log-title {
+      color: #888;
+      font-size: 0.9rem;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .log-clear {
+      background: none;
+      border: 1px solid #444;
+      color: #666;
+      border-radius: 6px;
+      padding: 2px 8px;
+      cursor: pointer;
+      font-size: 0.75rem;
+    }
+    .log-clear:hover { border-color: #888; color: #aaa; }
+    .log-empty { color: #444; font-size: 0.85rem; text-align: center; padding: 10px 0; }
+    .log-entry {
+      border-bottom: 1px solid #1e1e2e;
+      padding: 8px 0;
+      font-size: 0.85rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .log-entry:last-child { border-bottom: none; }
+    .log-time { color: #adf; font-family: monospace; }
+    .log-duration { color: #fa0; font-family: monospace; font-size: 0.8rem; }
 
     .mqtt-dot {
       width: 10px; height: 10px;
@@ -78,23 +114,30 @@
       margin-left: 6px;
     }
     .mqtt-dot.connected { background: #4f4; }
-    .mqtt-status { font-size: 0.8rem; color: #666; margin-top: 20px; }
+    .mqtt-status { font-size: 0.8rem; color: #666; margin-top: 10px; }
   </style>
 </head>
 <body>
-  <h1>💧 חיישן מפלס מים</h1>
+  <h1>💧 Flow Meter</h1>
 
   <div class="clock" id="clock">--:--:--</div>
   <div class="date" id="date"></div>
 
   <div class="status-card" id="statusCard">
-    <div class="status-label">מצב מים</div>
-    <div class="status-value ok" id="statusValue">ממתין...</div>
+    <div class="status-value ok" id="statusValue">אין הזנת מים</div>
   </div>
 
   <div class="last-card">
     <div class="last-label">פעם אחרונה שזוהו מים</div>
     <div class="last-time" id="lastTime">אף פעם</div>
+  </div>
+
+  <div class="log-card">
+    <div class="log-title">
+      <span>יומן אירועים</span>
+      <button class="log-clear" onclick="clearLog()">נקה</button>
+    </div>
+    <div id="logList"><div class="log-empty">אין אירועים עדיין</div></div>
   </div>
 
   <div class="mqtt-status">
@@ -104,14 +147,12 @@
 
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <script>
-    // שעון
     function updateClock() {
       const now = new Date();
       const hh = String(now.getHours()).padStart(2,'0');
       const mm = String(now.getMinutes()).padStart(2,'0');
       const ss = String(now.getSeconds()).padStart(2,'0');
       document.getElementById('clock').textContent = `${hh}:${mm}:${ss}`;
-
       const dd = String(now.getDate()).padStart(2,'0');
       const mo = String(now.getMonth()+1).padStart(2,'0');
       const yy = now.getFullYear();
@@ -120,7 +161,42 @@
     setInterval(updateClock, 1000);
     updateClock();
 
-    // MQTT
+    let detectStart = null;
+    let events = [];
+
+    function formatTime(d) {
+      return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+    }
+
+    function formatDuration(ms) {
+      const s = Math.round(ms / 1000);
+      if (s < 60) return `${s} שנ'`;
+      const m = Math.floor(s / 60), r = s % 60;
+      return `${m}:${String(r).padStart(2,'0')} דק'`;
+    }
+
+    function renderLog() {
+      const el = document.getElementById('logList');
+      if (events.length === 0) {
+        el.innerHTML = '<div class="log-empty">אין אירועים עדיין</div>';
+        return;
+      }
+      el.innerHTML = events.slice().reverse().map(e => `
+        <div class="log-entry">
+          <div>
+            <div class="log-time">${e.start} — ${e.end || '...'}</div>
+            <div style="color:#666;font-size:0.75rem">${e.date}</div>
+          </div>
+          <div class="log-duration">${e.duration || '...'}</div>
+        </div>
+      `).join('');
+    }
+
+    function clearLog() {
+      events = [];
+      renderLog();
+    }
+
     const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
 
     client.on('connect', () => {
@@ -139,16 +215,34 @@
         const data = JSON.parse(payload.toString());
         const card = document.getElementById('statusCard');
         const val  = document.getElementById('statusValue');
+        const now  = new Date();
 
         if (data.detected) {
           card.classList.add('alert');
           val.className = 'status-value high';
-          val.textContent = '⚠️ מים גבוהים!';
-          document.getElementById('lastTime').textContent = data.time || '---';
+          val.textContent = '⚠️ מד ספיקה לקראת ריקון';
+          document.getElementById('lastTime').textContent = data.time || formatTime(now);
+
+          detectStart = now;
+          const dd = String(now.getDate()).padStart(2,'0');
+          const mo = String(now.getMonth()+1).padStart(2,'0');
+          const yy = now.getFullYear();
+          events.push({ start: formatTime(now), end: null, duration: null, date: `${dd}/${mo}/${yy}`, _start: now });
+          renderLog();
         } else {
           card.classList.remove('alert');
           val.className = 'status-value ok';
-          val.textContent = '✓ תקין';
+          val.textContent = 'אין הזנת מים';
+
+          if (events.length > 0) {
+            const last = events[events.length - 1];
+            if (!last.end) {
+              last.end = formatTime(now);
+              last.duration = formatDuration(now - last._start);
+              renderLog();
+            }
+          }
+          detectStart = null;
         }
       } catch(e) {}
     });
