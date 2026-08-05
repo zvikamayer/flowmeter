@@ -181,6 +181,23 @@
     }
     .mqtt-dot.connected { background: #4f4; }
     .mqtt-status { font-size: 0.8rem; color: #666; margin-top: 10px; }
+
+    @media (max-width: 420px) {
+      body { padding: 12px; }
+      h1 { font-size: 1.4rem; margin-bottom: 14px; }
+      .clock { font-size: 3rem; letter-spacing: 2px; }
+      .date { font-size: 1rem; margin-bottom: 20px; }
+      .status-card { padding: 20px; }
+      .status-value { font-size: 1.8rem; }
+      .last-card { padding: 14px; }
+      .ml-card { padding: 12px; flex-wrap: wrap; }
+      .flow-card { padding: 12px; }
+      .log-card { padding: 14px; }
+      table { font-size: 0.72rem; }
+      td, th { padding: 5px 4px; }
+      .flow-value { font-size: 1rem; }
+    }
+    .log-table-wrap { overflow-x: auto; }
   </style>
 </head>
 <body>
@@ -235,7 +252,7 @@
       <span>יומן אירועים</span>
       <button class="log-clear" onclick="clearLog()">נקה</button>
     </div>
-    <div id="logList"><div class="log-empty">אין אירועים עדיין</div></div>
+    <div class="log-table-wrap"><div id="logList"><div class="log-empty">אין אירועים עדיין</div></div></div>
   </div>
 
   <div class="mqtt-status">
