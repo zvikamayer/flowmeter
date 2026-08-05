@@ -283,11 +283,6 @@
     const UNLOCK_CODE = '7408';
 
     const mlInput = document.getElementById('mlPerCycle');
-    mlInput.addEventListener('change', () => {
-      client.publish('water-sensor/config', JSON.stringify({ml: parseFloat(mlInput.value) || 0}), {retain: true, qos: 1});
-      mlInput.readOnly = true;
-      mlInput.style.background = '#0d0d1f';
-    });
 
     function unlockMl() {
       const code = prompt('הכנס קוד לשינוי:');
@@ -343,6 +338,12 @@
     setInterval(updateFlow, 10000);
 
     const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
+
+    mlInput.addEventListener('change', () => {
+      client.publish('water-sensor/config', JSON.stringify({ml: parseFloat(mlInput.value) || 0}), {retain: true, qos: 1});
+      mlInput.readOnly = true;
+      mlInput.style.background = '#0d0d1f';
+    });
 
     client.on('connect', () => {
       document.getElementById('mqttDot').classList.add('connected');
