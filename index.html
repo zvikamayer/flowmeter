@@ -226,7 +226,7 @@
   <div class="ml-card">
     <label>מ"ל למחזור:</label>
     <input type="number" id="mlPerCycle" value="0" min="0" step="1" readonly style="background:#0d0d1f;cursor:default;">
-    <button onclick="unlockMl()" style="background:none;border:1px solid #444;color:#666;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.75rem;">שנה</button>
+    <button id="mlBtn" onclick="unlockMl()" style="background:none;border:1px solid #444;color:#666;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.75rem;">שנה</button>
     <span>מ"ל</span>
   </div>
 
@@ -285,13 +285,31 @@
     const mlInput = document.getElementById('mlPerCycle');
 
     function unlockMl() {
-      const code = prompt('הכנס קוד לשינוי:');
-      if (code === UNLOCK_CODE) {
-        mlInput.readOnly = false;
-        mlInput.style.background = '#1a1a2e';
-        mlInput.focus();
-      } else if (code !== null) {
-        alert('קוד שגוי');
+      const btn = document.getElementById('mlBtn');
+      if (mlInput.readOnly) {
+        const code = prompt('הכנס קוד לשינוי:');
+        if (code === UNLOCK_CODE) {
+          mlInput.readOnly = false;
+          mlInput.style.background = '#1a1a2e';
+          mlInput.focus();
+          btn.textContent = 'שמור';
+          btn.style.borderColor = '#4f4';
+          btn.style.color = '#4f4';
+        } else if (code !== null) {
+          alert('קוד שגוי');
+        }
+      } else {
+        const val = parseFloat(mlInput.value) || 0;
+        client.publish('water-sensor/config', JSON.stringify({ml: val}), {retain: true, qos: 0}, (err) => {
+          if (!err) {
+            btn.textContent = '✓ נשמר';
+            setTimeout(() => { btn.textContent = 'שנה'; btn.style.borderColor = '#444'; btn.style.color = '#666'; }, 2000);
+          } else {
+            btn.textContent = '✗ שגיאה';
+          }
+        });
+        mlInput.readOnly = true;
+        mlInput.style.background = '#0d0d1f';
       }
     }
 
@@ -339,11 +357,6 @@
 
     const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
 
-    mlInput.addEventListener('change', () => {
-      client.publish('water-sensor/config', JSON.stringify({ml: parseFloat(mlInput.value) || 0}), {retain: true, qos: 1});
-      mlInput.readOnly = true;
-      mlInput.style.background = '#0d0d1f';
-    });
 
     client.on('connect', () => {
       document.getElementById('mqttDot').classList.add('connected');
