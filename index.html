@@ -325,9 +325,15 @@
         const val  = document.getElementById('statusValue');
 
         if (topic === 'water-sensor/info') {
-          document.getElementById('connDot').className = 'conn-dot on';
-          document.getElementById('connTitle').textContent = 'בקר מחובר ✓';
-          document.getElementById('connSub').textContent = `רשת: ${data.ssid}  |  IP: ${data.ip}`;
+          if (data.online) {
+            document.getElementById('connDot').className = 'conn-dot on';
+            document.getElementById('connTitle').textContent = 'בקר מחובר ✓';
+            document.getElementById('connSub').textContent = `רשת: ${data.ssid}  |  IP: ${data.ip}`;
+          } else {
+            document.getElementById('connDot').className = 'conn-dot off';
+            document.getElementById('connTitle').textContent = 'בקר מנותק';
+            document.getElementById('connSub').textContent = '';
+          }
           return;
         }
 
