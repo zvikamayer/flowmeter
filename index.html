@@ -148,6 +148,30 @@
     td.t-total{ color: #fa0; font-family: monospace; }
     tr:last-child td { border-bottom: none; }
 
+    .conn-card {
+      background: #111;
+      border-radius: 16px;
+      padding: 14px 20px;
+      width: 100%;
+      max-width: 400px;
+      border: 1px solid #333;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .conn-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: #555;
+      flex-shrink: 0;
+    }
+    .conn-dot.on { background: #4f4; box-shadow: 0 0 6px #4f4; }
+    .conn-dot.off { background: #f44; }
+    .conn-text { font-size: 0.9rem; }
+    .conn-title { color: #aaa; }
+    .conn-sub { color: #555; font-size: 0.78rem; margin-top: 2px; }
+
     .mqtt-dot {
       width: 10px; height: 10px;
       border-radius: 50%;
@@ -164,6 +188,14 @@
 
   <div class="clock" id="clock">--:--:--</div>
   <div class="date" id="date"></div>
+
+  <div class="conn-card">
+    <div class="conn-dot off" id="connDot"></div>
+    <div class="conn-text">
+      <div class="conn-title" id="connTitle">בקר לא מחובר</div>
+      <div class="conn-sub" id="connSub"></div>
+    </div>
+  </div>
 
   <div class="status-card" id="statusCard">
     <div class="status-value ok" id="statusValue">אין הזנת מים</div>
@@ -278,6 +310,7 @@
       document.getElementById('mqttDot').classList.add('connected');
       document.getElementById('mqttStatus').textContent = 'מחובר';
       client.subscribe('water-sensor/status');
+      client.subscribe('water-sensor/info');
     });
     client.on('disconnect', () => {
       document.getElementById('mqttDot').classList.remove('connected');
@@ -290,6 +323,13 @@
         const now  = new Date();
         const card = document.getElementById('statusCard');
         const val  = document.getElementById('statusValue');
+
+        if (topic === 'water-sensor/info') {
+          document.getElementById('connDot').className = 'conn-dot on';
+          document.getElementById('connTitle').textContent = 'בקר מחובר ✓';
+          document.getElementById('connSub').textContent = `רשת: ${data.ssid}  |  IP: ${data.ip}`;
+          return;
+        }
 
         if (data.detected) {
           card.classList.add('alert');
