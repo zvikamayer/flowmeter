@@ -184,16 +184,16 @@
     <div class="flow-title">ספיקה (ליטר/שעה)</div>
     <div class="flow-rows">
       <div class="flow-row">
-        <span class="flow-label">15 דקות אחרונות</span>
         <span class="flow-value" id="flow15">—</span>
+        <span class="flow-label">L/h &nbsp;|&nbsp; 15 דקות אחרונות</span>
       </div>
       <div class="flow-row">
-        <span class="flow-label">30 דקות אחרונות</span>
         <span class="flow-value" id="flow30">—</span>
+        <span class="flow-label">L/h &nbsp;|&nbsp; 30 דקות אחרונות</span>
       </div>
       <div class="flow-row">
-        <span class="flow-label">שעה אחרונה</span>
         <span class="flow-value" id="flow60">—</span>
+        <span class="flow-label">L/h &nbsp;|&nbsp; שעה אחרונה</span>
       </div>
     </div>
   </div>
@@ -265,9 +265,9 @@
     }
 
     function updateFlow() {
-      document.getElementById('flow15').textContent = calcFlow(15) + (calcFlow(15) !== '—' ? ' L/h' : '');
-      document.getElementById('flow30').textContent = calcFlow(30) + (calcFlow(30) !== '—' ? ' L/h' : '');
-      document.getElementById('flow60').textContent = calcFlow(60) + (calcFlow(60) !== '—' ? ' L/h' : '');
+      document.getElementById('flow15').textContent = calcFlow(15);
+      document.getElementById('flow30').textContent = calcFlow(30);
+      document.getElementById('flow60').textContent = calcFlow(60);
     }
 
     setInterval(updateFlow, 10000);
