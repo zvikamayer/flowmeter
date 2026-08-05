@@ -42,14 +42,8 @@
       border: 2px solid #333;
       transition: border-color 0.3s;
     }
-    .status-card.alert {
-      border-color: #f44;
-      background: #200;
-    }
-    .status-value {
-      font-size: 2.5rem;
-      font-weight: bold;
-    }
+    .status-card.alert { border-color: #f44; background: #200; }
+    .status-value { font-size: 2.5rem; font-weight: bold; }
     .status-value.ok { color: #4f4; }
     .status-value.high { color: #f44; }
 
@@ -65,6 +59,56 @@
     }
     .last-label { color: #888; font-size: 0.9rem; margin-bottom: 6px; }
     .last-time { font-size: 1.3rem; color: #adf; font-family: monospace; }
+
+    .ml-card {
+      background: #111;
+      border-radius: 16px;
+      padding: 16px 20px;
+      width: 100%;
+      max-width: 400px;
+      border: 1px solid #333;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .ml-card label { color: #888; font-size: 0.9rem; white-space: nowrap; }
+    .ml-card input {
+      flex: 1;
+      background: #1a1a2e;
+      border: 1px solid #444;
+      border-radius: 8px;
+      color: #fff;
+      padding: 6px 10px;
+      font-size: 1rem;
+      text-align: center;
+      width: 80px;
+    }
+    .ml-card input:focus { outline: none; border-color: #adf; }
+    .ml-card span { color: #888; font-size: 0.9rem; }
+    .ml-total { margin-right: auto; color: #4f4; font-weight: bold; font-size: 1rem; }
+
+    .flow-card {
+      background: #111;
+      border-radius: 16px;
+      padding: 16px 20px;
+      width: 100%;
+      max-width: 400px;
+      border: 1px solid #333;
+      margin-bottom: 20px;
+    }
+    .flow-title { color: #888; font-size: 0.9rem; margin-bottom: 12px; }
+    .flow-rows { display: flex; flex-direction: column; gap: 8px; }
+    .flow-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 10px;
+      background: #0d0d1f;
+      border-radius: 8px;
+    }
+    .flow-label { color: #666; font-size: 0.85rem; }
+    .flow-value { color: #adf; font-family: monospace; font-size: 1.1rem; font-weight: bold; }
 
     .log-card {
       background: #111;
@@ -94,17 +138,15 @@
     }
     .log-clear:hover { border-color: #888; color: #aaa; }
     .log-empty { color: #444; font-size: 0.85rem; text-align: center; padding: 10px 0; }
-    .log-entry {
-      border-bottom: 1px solid #1e1e2e;
-      padding: 8px 0;
-      font-size: 0.85rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-    }
-    .log-entry:last-child { border-bottom: none; }
-    .log-time { color: #adf; font-family: monospace; }
-    .log-duration { color: #fa0; font-family: monospace; font-size: 0.8rem; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th { color: #555; font-weight: normal; padding: 4px 6px; border-bottom: 1px solid #222; text-align: right; }
+    td { padding: 7px 6px; border-bottom: 1px solid #1a1a2e; }
+    td.t-time { color: #adf; font-family: monospace; }
+    td.t-dur  { color: #888; font-family: monospace; }
+    td.t-ml   { color: #4f4; font-family: monospace; font-weight: bold; }
+    td.t-total{ color: #fa0; font-family: monospace; }
+    tr:last-child td { border-bottom: none; }
 
     .mqtt-dot {
       width: 10px; height: 10px;
@@ -132,6 +174,30 @@
     <div class="last-time" id="lastTime">אף פעם</div>
   </div>
 
+  <div class="ml-card">
+    <label>מ"ל למחזור:</label>
+    <input type="number" id="mlPerCycle" value="0" min="0" step="1">
+    <span>מ"ל</span>
+  </div>
+
+  <div class="flow-card">
+    <div class="flow-title">ספיקה (ליטר/שעה)</div>
+    <div class="flow-rows">
+      <div class="flow-row">
+        <span class="flow-label">15 דקות אחרונות</span>
+        <span class="flow-value" id="flow15">—</span>
+      </div>
+      <div class="flow-row">
+        <span class="flow-label">30 דקות אחרונות</span>
+        <span class="flow-value" id="flow30">—</span>
+      </div>
+      <div class="flow-row">
+        <span class="flow-label">שעה אחרונה</span>
+        <span class="flow-value" id="flow60">—</span>
+      </div>
+    </div>
+  </div>
+
   <div class="log-card">
     <div class="log-title">
       <span>יומן אירועים</span>
@@ -149,53 +215,62 @@
   <script>
     function updateClock() {
       const now = new Date();
-      const hh = String(now.getHours()).padStart(2,'0');
-      const mm = String(now.getMinutes()).padStart(2,'0');
-      const ss = String(now.getSeconds()).padStart(2,'0');
-      document.getElementById('clock').textContent = `${hh}:${mm}:${ss}`;
-      const dd = String(now.getDate()).padStart(2,'0');
-      const mo = String(now.getMonth()+1).padStart(2,'0');
-      const yy = now.getFullYear();
-      document.getElementById('date').textContent = `${dd}/${mo}/${yy}`;
+      document.getElementById('clock').textContent =
+        `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      document.getElementById('date').textContent =
+        `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`;
+    }
+    function pad(n) { return String(n).padStart(2,'0'); }
+    function fmtTime(d) { return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
+    function fmtDur(ms) {
+      const s = Math.round(ms/1000);
+      if (s < 60) return `${s}s`;
+      return `${Math.floor(s/60)}:${pad(s%60)}m`;
     }
     setInterval(updateClock, 1000);
     updateClock();
 
-    let detectStart = null;
     let events = [];
+    let totalMl = 0;
 
-    function formatTime(d) {
-      return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
-    }
-
-    function formatDuration(ms) {
-      const s = Math.round(ms / 1000);
-      if (s < 60) return `${s} שנ'`;
-      const m = Math.floor(s / 60), r = s % 60;
-      return `${m}:${String(r).padStart(2,'0')} דק'`;
-    }
+    function getMl() { return parseFloat(document.getElementById('mlPerCycle').value) || 0; }
 
     function renderLog() {
       const el = document.getElementById('logList');
-      if (events.length === 0) {
-        el.innerHTML = '<div class="log-empty">אין אירועים עדיין</div>';
-        return;
-      }
-      el.innerHTML = events.slice().reverse().map(e => `
-        <div class="log-entry">
-          <div>
-            <div class="log-time">${e.start} — ${e.end || '...'}</div>
-            <div style="color:#666;font-size:0.75rem">${e.date}</div>
-          </div>
-          <div class="log-duration">${e.duration || '...'}</div>
-        </div>
-      `).join('');
+      if (!events.length) { el.innerHTML = '<div class="log-empty">אין אירועים עדיין</div>'; return; }
+      let html = '<table><tr><th>שעה</th><th>משך</th><th>מ"ל</th><th>סה"כ</th></tr>';
+      events.slice().reverse().forEach(e => {
+        html += `<tr>
+          <td class="t-time">${e.start}${e.end ? '–'+e.end : ''}<br><span style="color:#444;font-size:0.7rem">${e.date}</span></td>
+          <td class="t-dur">${e.duration || '...'}</td>
+          <td class="t-ml">${e.ml != null ? e.ml+' מ"ל' : '...'}</td>
+          <td class="t-total">${e.cumulative != null ? e.cumulative+' מ"ל' : '...'}</td>
+        </tr>`;
+      });
+      html += '</table>';
+      el.innerHTML = html;
+      document.getElementById('mlTotal').textContent = `סה"כ: ${totalMl} מ"ל`;
     }
 
-    function clearLog() {
-      events = [];
-      renderLog();
+    function clearLog() { events = []; totalMl = 0; renderLog(); updateFlow(); }
+
+    function calcFlow(windowMin) {
+      const ml = getMl();
+      if (ml <= 0) return '—';
+      const cutoff = Date.now() - windowMin * 60 * 1000;
+      const cycles = events.filter(e => e._start && e._start.getTime() >= cutoff && e.end).length;
+      if (cycles === 0) return '0.00';
+      const lph = (cycles * ml / 1000) / (windowMin / 60);
+      return lph.toFixed(2);
     }
+
+    function updateFlow() {
+      document.getElementById('flow15').textContent = calcFlow(15) + (calcFlow(15) !== '—' ? ' L/h' : '');
+      document.getElementById('flow30').textContent = calcFlow(30) + (calcFlow(30) !== '—' ? ' L/h' : '');
+      document.getElementById('flow60').textContent = calcFlow(60) + (calcFlow(60) !== '—' ? ' L/h' : '');
+    }
+
+    setInterval(updateFlow, 10000);
 
     const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
 
@@ -204,7 +279,6 @@
       document.getElementById('mqttStatus').textContent = 'מחובר';
       client.subscribe('water-sensor/status');
     });
-
     client.on('disconnect', () => {
       document.getElementById('mqttDot').classList.remove('connected');
       document.getElementById('mqttStatus').textContent = 'מנותק';
@@ -213,36 +287,35 @@
     client.on('message', (topic, payload) => {
       try {
         const data = JSON.parse(payload.toString());
+        const now  = new Date();
         const card = document.getElementById('statusCard');
         const val  = document.getElementById('statusValue');
-        const now  = new Date();
 
         if (data.detected) {
           card.classList.add('alert');
           val.className = 'status-value high';
           val.textContent = '⚠️ מד ספיקה לקראת ריקון';
-          document.getElementById('lastTime').textContent = data.time || formatTime(now);
-
-          detectStart = now;
-          const dd = String(now.getDate()).padStart(2,'0');
-          const mo = String(now.getMonth()+1).padStart(2,'0');
-          const yy = now.getFullYear();
-          events.push({ start: formatTime(now), end: null, duration: null, date: `${dd}/${mo}/${yy}`, _start: now });
+          document.getElementById('lastTime').textContent = data.time || fmtTime(now);
+          events.push({ start: fmtTime(now), end: null, duration: null, ml: null, cumulative: null,
+                        date: `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`, _start: now });
           renderLog();
         } else {
           card.classList.remove('alert');
           val.className = 'status-value ok';
           val.textContent = 'אין הזנת מים';
-
           if (events.length > 0) {
-            const last = events[events.length - 1];
+            const last = events[events.length-1];
             if (!last.end) {
-              last.end = formatTime(now);
-              last.duration = formatDuration(now - last._start);
+              const ml = getMl();
+              totalMl += ml;
+              last.end = fmtTime(now);
+              last.duration = fmtDur(now - last._start);
+              last.ml = ml;
+              last.cumulative = totalMl;
               renderLog();
+              updateFlow();
             }
           }
-          detectStart = null;
         }
       } catch(e) {}
     });
