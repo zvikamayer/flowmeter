@@ -148,6 +148,19 @@
     td.t-total{ color: #fa0; font-family: monospace; }
     tr:last-child td { border-bottom: none; }
 
+    .tank-card {
+      background: #111;
+      border-radius: 16px;
+      padding: 20px;
+      width: 100%;
+      max-width: 400px;
+      border: 1px solid #333;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .tank-title { color: #888; font-size: 0.9rem; margin-bottom: 12px; }
+    .tank-overflow { color: #f44; font-weight: bold; font-size: 1rem; margin-top: 8px; display: none; }
+
     .conn-card {
       background: #111;
       border-radius: 16px;
@@ -205,6 +218,40 @@
 
   <div class="clock" id="clock">--:--:--</div>
   <div class="date" id="date"></div>
+
+  <div class="tank-card">
+    <div class="tank-title">מפלס מיכל</div>
+    <svg viewBox="0 0 200 220" width="160" height="176">
+      <!-- מיכל -->
+      <ellipse cx="100" cy="30" rx="80" ry="20" fill="#1a1a2e" stroke="#444" stroke-width="2"/>
+      <ellipse cx="100" cy="190" rx="80" ry="20" fill="#1a1a2e" stroke="#444" stroke-width="2"/>
+      <rect x="20" y="30" width="160" height="160" fill="#1a1a2e" stroke="none"/>
+      <line x1="20" y1="30" x2="20" y2="190" stroke="#444" stroke-width="2"/>
+      <line x1="180" y1="30" x2="180" y2="190" stroke="#444" stroke-width="2"/>
+
+      <!-- מים (clip) -->
+      <defs>
+        <clipPath id="tankClip">
+          <rect x="22" y="32" width="156" height="156"/>
+        </clipPath>
+      </defs>
+      <rect id="waterFill" x="22" y="188" width="156" height="0" fill="#29b6f6" opacity="0.7" clip-path="url(#tankClip)"/>
+      <ellipse id="waterTop" cx="100" cy="188" rx="78" ry="10" fill="#29b6f6" opacity="0.9" clip-path="url(#tankClip)"/>
+
+      <!-- קווי רמה -->
+      <line x1="20" y1="158" x2="35" y2="158" stroke="#555" stroke-width="1"/> <text x="37" y="162" fill="#555" font-size="9">20%</text>
+      <line x1="20" y1="110" x2="35" y2="110" stroke="#555" stroke-width="1"/> <text x="37" y="114" fill="#555" font-size="9">50%</text>
+      <line x1="20" y1="78"  x2="35" y2="78"  stroke="#555" stroke-width="1"/> <text x="37" y="82"  fill="#555" font-size="9">75%</text>
+      <line x1="20" y1="38"  x2="35" y2="38"  stroke="#f44" stroke-width="1" stroke-dasharray="3,2"/> <text x="37" y="42" fill="#f44" font-size="9">גלישה</text>
+
+      <!-- % טקסט -->
+      <text id="levelText" x="100" y="115" text-anchor="middle" fill="#fff" font-size="22" font-weight="bold">0%</text>
+
+      <!-- מכסה עליון -->
+      <ellipse cx="100" cy="30" rx="80" ry="20" fill="none" stroke="#666" stroke-width="2"/>
+    </svg>
+    <div class="tank-overflow" id="tankOverflow">⚠️ גלישה! תקלה!</div>
+  </div>
 
   <div class="conn-card">
     <div class="conn-dot off" id="connDot"></div>
@@ -364,6 +411,7 @@
       client.subscribe('water-sensor/status');
       client.subscribe('water-sensor/info');
       client.subscribe('water-sensor/config');
+      client.subscribe('water-sensor/level');
     });
     client.on('disconnect', () => {
       document.getElementById('mqttDot').classList.remove('connected');
@@ -376,6 +424,23 @@
         const now  = new Date();
         const card = document.getElementById('statusCard');
         const val  = document.getElementById('statusValue');
+
+        if (topic === 'water-sensor/level') {
+          const level = data.level || 0;
+          const overflow = data.overflow || false;
+          // גובה המים ב-SVG: y=188 (ריק) עד y=32 (מלא) = 156px
+          const fillH = Math.round((level / 100) * 156);
+          const fillY = 188 - fillH;
+          document.getElementById('waterFill').setAttribute('y', fillY);
+          document.getElementById('waterFill').setAttribute('height', fillH);
+          document.getElementById('waterTop').setAttribute('cy', fillY);
+          document.getElementById('levelText').textContent = level + '%';
+          document.getElementById('waterFill').setAttribute('fill', overflow ? '#f44' : '#29b6f6');
+          document.getElementById('waterTop').setAttribute('fill', overflow ? '#f44' : '#29b6f6');
+          const ovfEl = document.getElementById('tankOverflow');
+          ovfEl.style.display = overflow ? 'block' : 'none';
+          return;
+        }
 
         if (topic === 'water-sensor/config') {
           mlInput.value = data.ml || 0;
