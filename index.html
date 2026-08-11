@@ -222,33 +222,40 @@
   <div class="tank-card">
     <div class="tank-title">מפלס מיכל</div>
     <svg viewBox="0 0 200 220" width="160" height="176">
-      <!-- מיכל -->
-      <ellipse cx="100" cy="30" rx="80" ry="20" fill="#1a1a2e" stroke="#444" stroke-width="2"/>
-      <ellipse cx="100" cy="190" rx="80" ry="20" fill="#1a1a2e" stroke="#444" stroke-width="2"/>
-      <rect x="20" y="30" width="160" height="160" fill="#1a1a2e" stroke="none"/>
-      <line x1="20" y1="30" x2="20" y2="190" stroke="#444" stroke-width="2"/>
-      <line x1="180" y1="30" x2="180" y2="190" stroke="#444" stroke-width="2"/>
-
-      <!-- מים (clip) -->
       <defs>
         <clipPath id="tankClip">
           <rect x="22" y="32" width="156" height="156"/>
         </clipPath>
       </defs>
-      <rect id="waterFill" x="22" y="188" width="156" height="0" fill="#29b6f6" opacity="0.7" clip-path="url(#tankClip)"/>
+
+      <!-- גוף מיכל -->
+      <rect x="20" y="30" width="160" height="160" fill="#1a1a2e" stroke="none"/>
+      <line x1="20" y1="30" x2="20" y2="190" stroke="#444" stroke-width="2"/>
+      <line x1="180" y1="30" x2="180" y2="190" stroke="#444" stroke-width="2"/>
+      <ellipse cx="100" cy="190" rx="80" ry="20" fill="#1a1a2e" stroke="#444" stroke-width="2"/>
+
+      <!-- מים -->
+      <rect id="waterFill" x="22" y="188" width="156" height="0" fill="#29b6f6" opacity="0.75" clip-path="url(#tankClip)"/>
       <ellipse id="waterTop" cx="100" cy="188" rx="78" ry="10" fill="#29b6f6" opacity="0.9" clip-path="url(#tankClip)"/>
 
-      <!-- קווי רמה -->
-      <line x1="20" y1="158" x2="35" y2="158" stroke="#555" stroke-width="1"/> <text x="37" y="162" fill="#555" font-size="9">20%</text>
+      <!-- קווי רמה כל 10% -->
+      <line x1="20" y1="172" x2="30" y2="172" stroke="#333" stroke-width="1"/>
+      <line x1="20" y1="157" x2="30" y2="157" stroke="#333" stroke-width="1"/>
+      <line x1="20" y1="141" x2="30" y2="141" stroke="#333" stroke-width="1"/>
+      <line x1="20" y1="126" x2="30" y2="126" stroke="#333" stroke-width="1"/>
       <line x1="20" y1="110" x2="35" y2="110" stroke="#555" stroke-width="1"/> <text x="37" y="114" fill="#555" font-size="9">50%</text>
-      <line x1="20" y1="78"  x2="35" y2="78"  stroke="#555" stroke-width="1"/> <text x="37" y="82"  fill="#555" font-size="9">75%</text>
-      <line x1="20" y1="38"  x2="35" y2="38"  stroke="#f44" stroke-width="1" stroke-dasharray="3,2"/> <text x="37" y="42" fill="#f44" font-size="9">גלישה</text>
+      <line x1="20" y1="94"  x2="30" y2="94"  stroke="#333" stroke-width="1"/>
+      <line x1="20" y1="79"  x2="30" y2="79"  stroke="#333" stroke-width="1"/>
+      <line x1="20" y1="63"  x2="30" y2="63"  stroke="#333" stroke-width="1"/>
+      <line x1="20" y1="48"  x2="30" y2="48"  stroke="#333" stroke-width="1"/>
+      <line x1="20" y1="32"  x2="35" y2="32"  stroke="#555" stroke-width="1"/> <text x="37" y="36" fill="#555" font-size="9">100%</text>
+      <line x1="20" y1="26"  x2="35" y2="26"  stroke="#f44" stroke-width="1" stroke-dasharray="3,2"/> <text x="37" y="30" fill="#f44" font-size="9">גלישה</text>
 
-      <!-- % טקסט -->
-      <text id="levelText" x="100" y="115" text-anchor="middle" fill="#fff" font-size="22" font-weight="bold">0%</text>
+      <!-- טקסט אחוז -->
+      <text id="levelText" x="100" y="118" text-anchor="middle" fill="#fff" font-size="24" font-weight="bold">0%</text>
 
       <!-- מכסה עליון -->
-      <ellipse cx="100" cy="30" rx="80" ry="20" fill="none" stroke="#666" stroke-width="2"/>
+      <ellipse cx="100" cy="30" rx="80" ry="20" fill="#1a1a2e" stroke="#666" stroke-width="2"/>
     </svg>
     <div class="tank-overflow" id="tankOverflow">⚠️ גלישה! תקלה!</div>
   </div>
