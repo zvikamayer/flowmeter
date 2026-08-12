@@ -437,12 +437,22 @@
       if (!events.length) { el.innerHTML = '<div class="log-empty">אין אירועים עדיין</div>'; return; }
       let html = '<table><tr><th>שעה</th><th>משך</th><th>מ"ל</th><th>L/h</th></tr>';
       events.slice().reverse().forEach(e => {
-        html += `<tr>
+        html += `<tr style="border-top:1px solid #333;">
           <td class="t-time">${e.start}${e.end ? '–'+e.end : ' ...'}<br><span style="color:#444;font-size:0.7rem">${e.date}</span></td>
           <td class="t-dur">${e.duration || '...'}</td>
           <td class="t-ml">${e.liters != null ? Math.round(e.liters*1000)+' מ"ל' : '...'}</td>
           <td class="t-total">${e.lph != null ? e.lph+' L/h' : '...'}</td>
         </tr>`;
+        if (e.levelSegments && e.levelSegments.length > 0) {
+          e.levelSegments.forEach(s => {
+            if (s.toLevel === null) return;
+            html += `<tr style="background:#0a0a18;font-size:0.78rem;color:#666;">
+              <td style="padding:2px 4px;color:#555;">${fmtTime(s.startTime)}–${s.endTime ? fmtTime(s.endTime) : '...'}</td>
+              <td style="padding:2px 4px;">${s.duration || '...'}</td>
+              <td colspan="2" style="padding:2px 4px;">${s.fromLevel}% → ${s.toLevel}%</td>
+            </tr>`;
+          });
+        }
       });
       html += '</table>';
       el.innerHTML = html;
@@ -503,8 +513,26 @@
           document.getElementById('levelText').textContent = level + '%';
           document.getElementById('waterFill').setAttribute('fill', overflow ? '#f44' : '#29b6f6');
           document.getElementById('waterTop').setAttribute('fill', overflow ? '#f44' : '#29b6f6');
-          const ovfEl = document.getElementById('tankOverflow');
-          ovfEl.style.display = overflow ? 'block' : 'none';
+          document.getElementById('tankOverflow').style.display = overflow ? 'block' : 'none';
+
+          // תיעוד מפלס בזמן ריקון
+          if (currentDrainStart && events.length > 0) {
+            const ev = events[events.length - 1];
+            if (!ev.levelSegments) ev.levelSegments = [];
+            const segs = ev.levelSegments;
+            if (segs.length > 0) {
+              const prev = segs[segs.length - 1];
+              if (!prev.endTime && prev.fromLevel !== level) {
+                prev.endTime = now;
+                prev.toLevel = level;
+                prev.duration = fmtDur(now - prev.startTime);
+                segs.push({ fromLevel: level, startTime: now, endTime: null, toLevel: null, duration: null });
+                renderLog();
+              }
+            } else {
+              segs.push({ fromLevel: level, startTime: now, endTime: null, toLevel: null, duration: null });
+            }
+          }
           return;
         }
 
@@ -572,6 +600,15 @@
               last._end = now;
               last.durationMs = durationMs;
               totalLiters += vol;
+              // סגור סגמנט מפלס אחרון
+              if (last.levelSegments && last.levelSegments.length > 0) {
+                const lastSeg = last.levelSegments[last.levelSegments.length - 1];
+                if (!lastSeg.endTime) {
+                  lastSeg.endTime = now;
+                  lastSeg.toLevel = lastSeg.fromLevel;
+                  lastSeg.duration = fmtDur(now - lastSeg.startTime);
+                }
+              }
               renderLog();
               updateFlow();
             }
