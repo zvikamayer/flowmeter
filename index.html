@@ -287,10 +287,15 @@
   </div>
 
   <div class="ml-card">
-    <label>מ"ל למחזור:</label>
-    <input type="number" id="mlPerCycle" value="0" min="0" step="1" readonly style="background:#0d0d1f;cursor:default;">
-    <button id="mlBtn" onclick="unlockMl()" style="background:none;border:1px solid #444;color:#666;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.75rem;">שנה</button>
+    <label>נפח ריקון:</label>
+    <input type="number" id="drainVolume" value="0" min="0" step="1" readonly style="background:#0d0d1f;cursor:default;width:80px;">
     <span>מ"ל</span>
+    <button id="volBtn" onclick="unlockVol()" style="background:none;border:1px solid #444;color:#666;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.75rem;margin-right:8px;">שנה</button>
+  </div>
+
+  <div class="last-card" style="text-align:center;">
+    <button id="calibBtn" onclick="startCalib()" style="background:#1a2a1a;border:1px solid #4a4;color:#8f8;border-radius:10px;padding:10px 20px;cursor:pointer;font-size:1rem;width:100%;">⚙️ חישוב ספיקה ראשוני</button>
+    <div id="calibStatus" style="margin-top:8px;font-size:0.85rem;color:#888;min-height:20px;"></div>
   </div>
 
   <div class="flow-card">
@@ -345,16 +350,17 @@
 
     const UNLOCK_CODE = '7408';
 
-    const mlInput = document.getElementById('mlPerCycle');
+    const drainVolInput = document.getElementById('drainVolume');
 
-    function unlockMl() {
-      const btn = document.getElementById('mlBtn');
-      if (mlInput.readOnly) {
+    function unlockVol() {
+      const btn = document.getElementById('volBtn');
+      if (drainVolInput.readOnly) {
         const code = prompt('הכנס קוד לשינוי:');
         if (code === UNLOCK_CODE) {
-          mlInput.readOnly = false;
-          mlInput.style.background = '#1a1a2e';
-          mlInput.focus();
+          drainVolInput.readOnly = false;
+          drainVolInput.style.background = '#1a1a2e';
+          drainVolInput.style.cursor = 'auto';
+          drainVolInput.focus();
           btn.textContent = 'שמור';
           btn.style.borderColor = '#4f4';
           btn.style.color = '#4f4';
@@ -362,52 +368,96 @@
           alert('קוד שגוי');
         }
       } else {
-        const val = parseFloat(mlInput.value) || 0;
-        client.publish('water-sensor/config', JSON.stringify({ml: val}), {retain: true, qos: 0}, (err) => {
-          if (!err) {
-            btn.textContent = '✓ נשמר';
-            setTimeout(() => { btn.textContent = 'שנה'; btn.style.borderColor = '#444'; btn.style.color = '#666'; }, 2000);
-          } else {
-            btn.textContent = '✗ שגיאה';
-          }
-        });
-        mlInput.readOnly = true;
-        mlInput.style.background = '#0d0d1f';
+        drainVolInput.readOnly = true;
+        drainVolInput.style.background = '#0d0d1f';
+        drainVolInput.style.cursor = 'default';
+        btn.textContent = '✓ נשמר';
+        btn.style.borderColor = '#444'; btn.style.color = '#666';
+        setTimeout(() => { btn.textContent = 'שנה'; }, 2000);
       }
     }
 
-    let events = [];
-    let totalMl = 0;
+    function getDrainVol() { return (parseFloat(drainVolInput.value) || 0) / 1000; } // מ"ל → ליטר לחישוב
 
-    function getMl() { return parseFloat(mlInput.value) || 0; }
+    // מצב כיול
+    let calibMode = false;
+    let calibWaiting = false; // ממתין לתחילת ריקון
+    let calibStart = null;
+    let calibTimer = null;
+
+    function startCalib() {
+      if (calibMode) return;
+      calibMode = true;
+      calibWaiting = true;
+      document.getElementById('calibBtn').textContent = '⏳ ממתין לריקון...';
+      document.getElementById('calibBtn').style.background = '#1a1a2a';
+      document.getElementById('calibStatus').textContent = 'כאשר D19 יסגור מעגל — הכיול יתחיל אוטומטית';
+    }
+
+    function calibStartDrain() {
+      calibWaiting = false;
+      calibStart = Date.now();
+      let sec = 0;
+      document.getElementById('calibBtn').textContent = '⏱️ מודד ריקון...';
+      calibTimer = setInterval(() => {
+        sec++;
+        document.getElementById('calibStatus').textContent = `זמן ריקון: ${sec} שניות`;
+      }, 1000);
+    }
+
+    function calibEndDrain() {
+      if (!calibStart) return;
+      clearInterval(calibTimer);
+      const durationMs = Date.now() - calibStart;
+      const durationSec = Math.round(durationMs / 1000);
+      calibMode = false;
+      calibStart = null;
+
+      const vol = prompt(`הריקון נמשך ${durationSec} שניות.\nהכנס את נפח המים שהתרוקן (מ"ל):`);
+      if (vol !== null && parseFloat(vol) > 0) {
+        const ml = parseFloat(vol);
+        drainVolInput.value = Math.round(ml);
+        const lph = ((ml / 1000) / (durationMs / 3600000)).toFixed(2);
+        document.getElementById('calibBtn').textContent = '✓ כיול הושלם';
+        document.getElementById('calibBtn').style.background = '#1a2a1a';
+        document.getElementById('calibStatus').textContent = `נפח: ${ml} מ"ל | זמן: ${durationSec}ש׳ | ספיקה: ${lph} L/h`;
+      } else {
+        document.getElementById('calibBtn').textContent = '⚙️ חישוב ספיקה ראשוני';
+        document.getElementById('calibStatus').textContent = 'בוטל';
+      }
+    }
+
+    // אירועי ריקון
+    let events = [];
+    let totalLiters = 0;
+    let currentDrainStart = null;
 
     function renderLog() {
       const el = document.getElementById('logList');
       if (!events.length) { el.innerHTML = '<div class="log-empty">אין אירועים עדיין</div>'; return; }
-      let html = '<table><tr><th>שעה</th><th>משך</th><th>מ"ל</th><th>סה"כ</th></tr>';
+      let html = '<table><tr><th>שעה</th><th>משך</th><th>מ"ל</th><th>L/h</th></tr>';
       events.slice().reverse().forEach(e => {
         html += `<tr>
-          <td class="t-time">${e.start}${e.end ? '–'+e.end : ''}<br><span style="color:#444;font-size:0.7rem">${e.date}</span></td>
+          <td class="t-time">${e.start}${e.end ? '–'+e.end : ' ...'}<br><span style="color:#444;font-size:0.7rem">${e.date}</span></td>
           <td class="t-dur">${e.duration || '...'}</td>
-          <td class="t-ml">${e.ml != null ? e.ml+' מ"ל' : '...'}</td>
-          <td class="t-total">${e.cumulative != null ? e.cumulative+' מ"ל' : '...'}</td>
+          <td class="t-ml">${e.liters != null ? Math.round(e.liters*1000)+' מ"ל' : '...'}</td>
+          <td class="t-total">${e.lph != null ? e.lph+' L/h' : '...'}</td>
         </tr>`;
       });
       html += '</table>';
       el.innerHTML = html;
-      document.getElementById('mlTotal').textContent = `סה"כ: ${totalMl} מ"ל`;
     }
 
-    function clearLog() { events = []; totalMl = 0; renderLog(); updateFlow(); }
+    function clearLog() { events = []; totalLiters = 0; renderLog(); updateFlow(); }
 
     function calcFlow(windowMin) {
-      const ml = getMl();
-      if (ml <= 0) return '—';
       const cutoff = Date.now() - windowMin * 60 * 1000;
-      const cycles = events.filter(e => e._start && e._start.getTime() >= cutoff && e.end).length;
-      if (cycles === 0) return '0.00';
-      const lph = (cycles * ml / 1000) / (windowMin / 60);
-      return lph.toFixed(2);
+      const done = events.filter(e => e._end && e._end.getTime() >= cutoff && e.durationMs > 0);
+      if (!done.length) return '—';
+      const totalVol = done.reduce((s, e) => s + (e.liters || 0), 0);
+      const totalDurH = done.reduce((s, e) => s + (e.durationMs / 3600000), 0);
+      if (totalDurH === 0) return '—';
+      return (totalVol / totalDurH).toFixed(2);
     }
 
     function updateFlow() {
@@ -477,29 +527,55 @@
         }
 
         if (data.detected) {
+          // מיכל בריקון
           card.classList.add('alert');
           val.className = 'status-value high';
-          val.textContent = '⚠️ מד ספיקה לקראת ריקון';
+          val.textContent = '⚠️ מיכל בריקון';
           document.getElementById('lastTime').textContent = data.time || fmtTime(now);
-          events.push({ start: fmtTime(now), end: null, duration: null, ml: null, cumulative: null,
-                        date: `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`, _start: now });
-          renderLog();
+
+          // כיול ראשוני
+          if (calibMode && calibWaiting) {
+            calibStartDrain();
+          }
+
+          // אירוע ריקון רגיל (אחרי כיול)
+          if (!calibMode && !currentDrainStart) {
+            currentDrainStart = now;
+            events.push({ start: fmtTime(now), end: null, duration: null, liters: null, lph: null,
+                          date: `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`,
+                          _start: now, _end: null, durationMs: 0 });
+            renderLog();
+          }
+
         } else {
+          // ריקון הסתיים
           card.classList.remove('alert');
           val.className = 'status-value ok';
           val.textContent = 'אין הזנת מים';
-          if (events.length > 0) {
-            const last = events[events.length-1];
+
+          // סיום כיול
+          if (calibMode && !calibWaiting) {
+            calibEndDrain();
+          }
+
+          // סיום אירוע ריקון רגיל
+          if (currentDrainStart && events.length > 0) {
+            const last = events[events.length - 1];
             if (!last.end) {
-              const ml = getMl();
-              totalMl += ml;
+              const durationMs = now - currentDrainStart;
+              const vol = getDrainVol();
+              const lph = durationMs > 0 && vol > 0 ? (vol / (durationMs / 3600000)).toFixed(2) : null;
               last.end = fmtTime(now);
-              last.duration = fmtDur(now - last._start);
-              last.ml = ml;
-              last.cumulative = totalMl;
+              last.duration = fmtDur(durationMs);
+              last.liters = vol;
+              last.lph = lph;
+              last._end = now;
+              last.durationMs = durationMs;
+              totalLiters += vol;
               renderLog();
               updateFlow();
             }
+            currentDrainStart = null;
           }
         }
       } catch(e) {}
